@@ -139,6 +139,30 @@ python main.py --query "from:linkedin.com OR from:indeed.com"
 python main.py --query "from:company.com job"
 ```
 
+### CV-Based Job Searching 🎯
+
+**NEW:** Search for jobs relevant to your CV and rank them by match score!
+
+```bash
+# Search for EUC (End User Computing) jobs
+python search_euc_jobs.py
+
+# This will:
+# - Generate targeted Gmail queries from EUC profile
+# - Score each job based on keyword matches
+# - Rank jobs by relevance (0-100%)
+# - Export excellent matches (70%+) to CSV
+```
+
+**Match Quality Levels:**
+- 🔥 **Excellent (70%+)**: Strong match to your profile
+- ✓ **Good (50-69%)**: Good fit, worth applying
+- ○ **Moderate (30-49%)**: Some matches, review carefully
+- \- **Low (<30%)**: Weak match, probably skip
+
+**Create your own profile:**
+See `profiles/README.md` for how to create custom CV profiles for different roles.
+
 ### View and Manage Jobs
 
 ```bash
