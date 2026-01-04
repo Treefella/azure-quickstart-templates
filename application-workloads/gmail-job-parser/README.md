@@ -18,10 +18,27 @@ An intelligent Python application that automatically parses Gmail emails to find
 
 ## Prerequisites
 
-1. **Python 3.8+**
-2. **Ollama** - Install from [ollama.ai](https://ollama.ai)
+1. **Python 3.8+** OR **Docker** (for containerized deployment)
+2. **Ollama** - Install from [ollama.ai](https://ollama.ai) OR use Docker
 3. **Gmail API Credentials** - From Google Cloud Console
 4. **Ollama Models** - Default uses `llama3.2`, but you can configure other models
+
+## Quick Start with Docker 🐳
+
+**Easiest way to run with Ollama in containers:**
+
+```bash
+# 1. Initialize Ollama and download models (5-10 minutes)
+./run-docker.sh setup
+
+# 2. Test the models
+./run-docker.sh test
+
+# 3. Process your emails
+./run-docker.sh run 50
+```
+
+**See [DOCKER.md](DOCKER.md) for complete Docker documentation.**
 
 ## Installation
 
