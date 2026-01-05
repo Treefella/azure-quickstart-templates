@@ -1,0 +1,157 @@
+{
+  "name": "Graeme Suddick - Windows/SCCM/Intune Specialist",
+  "description": "IT Infrastructure Engineer specializing in Windows deployment, SCCM, Intune, and Endpoint Management. Experienced in NHS and public sector environments.",
+
+  "skills": [
+    "sccm",
+    "intune",
+    "autopilot",
+    "windows 11",
+    "windows 10",
+    "endpoint management",
+    "active directory",
+    "entra",
+    "azure",
+    "office 365",
+    "microsoft 365",
+    "m365",
+    "powershell",
+    "third line support",
+    "3rd line support",
+    "deployment",
+    "infrastructure",
+    "itil",
+    "servicenow",
+    "ivanti",
+    "vmware",
+    "hyper-v",
+    "patch management",
+    "defender",
+    "nhs",
+    "public sector",
+    "application packaging",
+    "mdm",
+    "vdi"
+  ],
+
+  "technologies": [
+    "sccm",
+    "microsoft endpoint manager",
+    "intune",
+    "autopilot",
+    "windows 11",
+    "windows 10",
+    "azure ad",
+    "entra id",
+    "microsoft 365",
+    "office 365",
+    "powershell",
+    "active directory",
+    "group policy",
+    "servicenow",
+    "ivanti",
+    "vmware horizon",
+    "hyper-v",
+    "microsoft defender",
+    "patch manager",
+    "application packaging tools",
+    "mdm solutions",
+    "vdi platforms"
+  ],
+
+  "preferred_roles": [
+    "windows engineer",
+    "deployment engineer",
+    "deployment specialist",
+    "infrastructure engineer",
+    "endpoint engineer",
+    "endpoint specialist",
+    "third line engineer",
+    "3rd line engineer",
+    "senior engineer",
+    "lead engineer",
+    "technical specialist",
+    "sccm engineer",
+    "sccm specialist",
+    "intune engineer",
+    "intune specialist",
+    "azure engineer",
+    "windows systems engineer",
+    "desktop engineer",
+    "it infrastructure engineer",
+    "systems analyst",
+    "technical architect"
+  ],
+
+  "domains": [
+    "endpoint management",
+    "windows deployment",
+    "infrastructure",
+    "public sector",
+    "nhs",
+    "healthcare",
+    "it operations",
+    "third line support",
+    "enterprise it",
+    "cloud infrastructure"
+  ],
+
+  "keywords": [
+    "remote",
+    "hybrid",
+    "north east",
+    "northeast",
+    "durham",
+    "newcastle",
+    "sunderland",
+    "consett",
+    "gateshead",
+    "tyne and wear",
+    "contract",
+    "day rate",
+    "outside ir35",
+    "inside ir35",
+    "sc clearance",
+    "public sector",
+    "nhs",
+    "urgent",
+    "asap",
+    "immediate start"
+  ],
+
+  "contract_preferences": {
+    "type": "contract",
+    "ir35_preference": "outside",
+    "min_day_rate": 400,
+    "max_day_rate": 600,
+    "locations": [
+      "remote",
+      "durham",
+      "newcastle",
+      "north east",
+      "northeast",
+      "sunderland",
+      "consett",
+      "gateshead",
+      "tyne and wear",
+      "hybrid"
+    ]
+  },
+
+  "exclusions": {
+    "avoid_keywords": [
+      "junior",
+      "graduate",
+      "trainee",
+      "apprentice",
+      "london only",
+      "permanent only"
+    ],
+    "avoid_locations": [
+      "london only",
+      "scotland",
+      "wales",
+      "southern england"
+    ]
+  }
+}
