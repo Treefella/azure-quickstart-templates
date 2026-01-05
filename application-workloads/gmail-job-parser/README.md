@@ -102,15 +102,33 @@ export OLLAMA_CONFIRMATION_MODEL="llama3.2"
 export LOG_LEVEL="INFO"
 ```
 
-### Using Different Models
+### Using Different Models ⚡
 
-You can use different Ollama models for different tasks:
+**IMPORTANT for Local Execution:** Use optimized model profiles for 3-5x faster processing!
 
 ```bash
-# Use different models for different tasks
-export OLLAMA_JOB_DETECTION_MODEL="mistral"
-export OLLAMA_JOB_EXTRACTION_MODEL="llama3.1"
-export OLLAMA_CONFIRMATION_MODEL="llama3.2"
+# Quick switch to BALANCED profile (recommended)
+./switch-profile.sh balanced
+
+# Or choose a profile:
+./switch-profile.sh fast        # Fastest (85-90% accuracy)
+./switch-profile.sh balanced    # Best balance (92-95% accuracy) ⭐
+./switch-profile.sh accurate    # Highest accuracy (95-98%, slower)
+./switch-profile.sh ultrafast   # Very fast (80-85% accuracy)
+```
+
+**See [MODEL_STRATEGY.md](MODEL_STRATEGY.md) for:**
+- Detailed performance comparisons
+- Model recommendations by hardware
+- Task-specific model sizing
+- Benchmarks and accuracy metrics
+
+**Manual configuration:**
+```bash
+# Example: Fast profile
+export OLLAMA_JOB_DETECTION_MODEL="llama3.2:1b"     # Small & fast
+export OLLAMA_JOB_EXTRACTION_MODEL="llama3.2:3b"    # Balanced
+export OLLAMA_CONFIRMATION_MODEL="llama3.2:1b"      # Small & fast
 ```
 
 ### Configuration File
