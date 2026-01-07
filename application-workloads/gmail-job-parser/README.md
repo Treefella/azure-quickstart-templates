@@ -181,6 +181,39 @@ python search_euc_jobs.py
 **Create your own profile:**
 See `profiles/README.md` for how to create custom CV profiles for different roles.
 
+### Web GUI 🌐
+
+**NEW:** Modern browser-based interface for managing job applications!
+
+```bash
+# Launch the web GUI
+python web_gui.py
+```
+
+**Features:**
+- 📊 Visual dashboard with job listings and statistics
+- 🎯 Real-time filtering (priority, location, keyword search)
+- 📋 Detailed job view with matched skills
+- 🔴 Priority badges (High/Medium/Low/Check)
+- 📥 Export filtered jobs to CSV
+- 🔄 Fetch new jobs directly from GUI
+- 📱 Responsive design works on any device
+
+**Quick Actions:**
+- Click any job to see full details
+- Filter by priority and location
+- Search across all fields
+- Export high-priority matches
+- View your CV profile
+
+**See [WEB_GUI.md](WEB_GUI.md) for complete documentation.**
+
+**Alternative: Desktop GUI**
+```bash
+# Launch desktop GUI (tkinter)
+python job_parser_gui.py
+```
+
 ### View and Manage Jobs
 
 ```bash
