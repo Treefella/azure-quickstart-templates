@@ -2,12 +2,19 @@
 """
 Process last month of emails and evaluate against CV profile
 """
+import sys
+import io
 import logging
 from datetime import datetime, timedelta
 from job_detector import JobDetector
 from cv_profile import CVProfile
 import json
 import config
+
+# Fix encoding for Windows console
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 logging.basicConfig(
     level=config.LOG_LEVEL,
