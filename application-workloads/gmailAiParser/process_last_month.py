@@ -48,9 +48,9 @@ def main():
     profile_path = 'profiles/graeme_suddick_profile.json'
     print(f"📋 Loading CV Profile: {profile_path}")
     cv_profile = CVProfile(profile_path)
-    print(f"   ✓ Skills: {len(cv_profile.profile['skills'])}")
-    print(f"   ✓ Technologies: {len(cv_profile.profile['technologies'])}")
-    print(f"   ✓ Preferred roles: {len(cv_profile.profile['preferred_roles'])}")
+    print(f"   ✓ Skills: {len(cv_profile.skills)}")
+    print(f"   ✓ Technologies: {len(cv_profile.technologies)}")
+    print(f"   ✓ Preferred roles: {len(cv_profile.preferred_roles)}")
     print()
 
     # Initialize job detector
