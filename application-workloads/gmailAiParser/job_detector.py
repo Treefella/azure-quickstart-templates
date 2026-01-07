@@ -1,8 +1,6 @@
 """
 Job detection and management system
 """
-import sys
-import io
 import json
 import logging
 from typing import Dict, List
@@ -11,11 +9,6 @@ from gmail_client import GmailClient
 from ollama_parser import OllamaParser
 from duplicate_tracker import DuplicateTracker
 import config
-
-# Fix encoding for Windows console
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 logging.basicConfig(level=config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
