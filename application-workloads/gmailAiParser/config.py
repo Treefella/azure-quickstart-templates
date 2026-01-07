@@ -26,9 +26,9 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Multiple models for different tasks
 OLLAMA_MODELS = {
-    "job_detection": os.getenv("OLLAMA_JOB_DETECTION_MODEL", "llama3.2"),
-    "job_extraction": os.getenv("OLLAMA_JOB_EXTRACTION_MODEL", "llama3.2"),
-    "confirmation_detection": os.getenv("OLLAMA_CONFIRMATION_MODEL", "llama3.2")
+    "job_detection": os.getenv("OLLAMA_JOB_DETECTION_MODEL", "phi3:mini"),
+    "job_extraction": os.getenv("OLLAMA_JOB_EXTRACTION_MODEL", "phi3:mini"),
+    "confirmation_detection": os.getenv("OLLAMA_CONFIRMATION_MODEL", "phi3:mini")
 }
 
 # Job keywords for initial filtering
