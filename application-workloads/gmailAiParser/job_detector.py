@@ -1,6 +1,8 @@
 """
 Job detection and management system
 """
+import sys
+import io
 import json
 import logging
 from typing import Dict, List
@@ -9,6 +11,11 @@ from gmail_client import GmailClient
 from ollama_parser import OllamaParser
 from duplicate_tracker import DuplicateTracker
 import config
+
+# Fix encoding for Windows console
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 logging.basicConfig(level=config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -66,9 +73,12 @@ class JobDetector:
 
         if not emails:
             logger.info("No emails to process")
+            print("ℹ️  No emails to process")
             return
 
         logger.info(f"Processing {len(emails)} emails...")
+        print(f"\n📧 Processing {len(emails)} emails...")
+        print("=" * 60)
 
         new_jobs = 0
         confirmations = 0
@@ -76,10 +86,14 @@ class JobDetector:
         non_jobs = 0
 
         for i, email in enumerate(emails, 1):
+            # Progress indicator
+            subject_preview = email['subject'][:60] if len(email['subject']) > 60 else email['subject']
+            print(f"\n[{i}/{len(emails)}] {subject_preview}")
             logger.info(f"Processing email {i}/{len(emails)}: {email['subject'][:50]}...")
 
             # Skip if already processed
             if self.duplicate_tracker.is_processed(email['id']):
+                print("   ⏭️  Already processed (skipping)")
                 logger.debug(f"Email {email['id']} already processed, skipping")
                 duplicates += 1
                 continue
@@ -93,6 +107,7 @@ class JobDetector:
 
                 # If very similar, mark as duplicate
                 if similar_emails[0]['similarity_score'] > config.SIMILARITY_THRESHOLD:
+                    print(f"   🔄 Duplicate detected ({similar_emails[0]['similarity_score']:.0%} similar)")
                     logger.info("Email is a duplicate, skipping detailed processing")
                     self.duplicate_tracker.mark_as_processed(
                         email['id'],
@@ -104,9 +119,11 @@ class JobDetector:
                     continue
 
             # Check if it's an application confirmation
+            print("   🤖 Checking with AI...", end='', flush=True)
             is_confirmation = self.ollama_parser.is_application_confirmation(email)
 
             if is_confirmation:
+                print("\r   ✅ Application confirmation detected")
                 logger.info("✓ Email is a job application confirmation")
                 self.duplicate_tracker.mark_as_processed(
                     email['id'],
@@ -121,6 +138,7 @@ class JobDetector:
             is_job = self.ollama_parser.is_job_related(email)
 
             if not is_job:
+                print("\r   ⚪ Not a job email")
                 logger.debug("Email is not job-related")
                 self.duplicate_tracker.mark_as_processed(
                     email['id'],
@@ -131,6 +149,7 @@ class JobDetector:
                 continue
 
             # Extract job details
+            print("\r   💼 Job detected! Extracting details...", end='', flush=True)
             logger.info("✓ Email is job-related, extracting details...")
             job_details = self.ollama_parser.extract_job_details(email)
 
@@ -141,8 +160,14 @@ class JobDetector:
                 self.jobs_database.append(job_details)
                 self.save_jobs_database()
 
-                logger.info(f"✓ Extracted job: {job_details.get('position', 'Unknown')} "
-                          f"at {job_details.get('company', 'Unknown')}")
+                position = job_details.get('position', 'Unknown Position')
+                company = job_details.get('company', 'Unknown Company')
+                location = job_details.get('location', 'Unknown Location')
+                print(f"\r   ✅ JOB FOUND: {position}")
+                print(f"      Company: {company}")
+                print(f"      Location: {location}")
+
+                logger.info(f"✓ Extracted job: {position} at {company}")
                 new_jobs += 1
 
             # Mark as processed
@@ -154,6 +179,16 @@ class JobDetector:
             )
 
         # Print summary
+        print("\n" + "=" * 60)
+        print("PROCESSING SUMMARY")
+        print("=" * 60)
+        print(f"📊 Total emails processed: {len(emails)}")
+        print(f"💼 New job opportunities found: {new_jobs}")
+        print(f"✅ Application confirmations: {confirmations}")
+        print(f"🔄 Duplicates skipped: {duplicates}")
+        print(f"⚪ Non-job emails: {non_jobs}")
+        print("=" * 60)
+
         logger.info("\n" + "="*60)
         logger.info("PROCESSING SUMMARY")
         logger.info("="*60)
@@ -166,6 +201,14 @@ class JobDetector:
 
         # Print overall statistics
         stats = self.duplicate_tracker.get_statistics()
+        print("\n📈 OVERALL STATISTICS")
+        print("=" * 60)
+        print(f"Total emails ever processed: {stats['total_processed']}")
+        print(f"Total job emails: {stats['job_emails']}")
+        print(f"Total confirmations: {stats['confirmation_emails']}")
+        print(f"Total jobs in database: {len(self.jobs_database)}")
+        print("=" * 60 + "\n")
+
         logger.info("\nOVERALL STATISTICS")
         logger.info("="*60)
         logger.info(f"Total emails ever processed: {stats['total_processed']}")
