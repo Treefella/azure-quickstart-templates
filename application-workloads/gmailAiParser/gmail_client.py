@@ -28,24 +28,40 @@ class GmailClient:
         """Authenticate with Gmail API using OAuth2"""
         creds = None
 
+        # Ensure data directory exists
+        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+
         # Load existing token
         if config.GMAIL_TOKEN_FILE.exists():
-            creds = Credentials.from_authorized_user_file(
-                str(config.GMAIL_TOKEN_FILE),
-                config.GMAIL_SCOPES
-            )
+            try:
+                creds = Credentials.from_authorized_user_file(
+                    str(config.GMAIL_TOKEN_FILE),
+                    config.GMAIL_SCOPES
+                )
+                logger.info("Loaded existing token from file")
+            except Exception as e:
+                logger.warning(f"Failed to load token: {e}. Will re-authenticate.")
+                creds = None
 
         # If no valid credentials, let user log in
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
+                try:
+                    logger.info("Refreshing expired token...")
+                    creds.refresh(Request())
+                    logger.info("Token refreshed successfully")
+                except Exception as e:
+                    logger.warning(f"Failed to refresh token: {e}. Will re-authenticate.")
+                    creds = None
+
+            if not creds:
                 if not config.GMAIL_CREDENTIALS_FILE.exists():
                     raise FileNotFoundError(
                         f"Gmail credentials file not found at {config.GMAIL_CREDENTIALS_FILE}. "
                         "Please download it from Google Cloud Console."
                     )
 
+                logger.info("Starting OAuth2 authentication flow...")
                 flow = InstalledAppFlow.from_client_secrets_file(
                     str(config.GMAIL_CREDENTIALS_FILE),
                     config.GMAIL_SCOPES
@@ -53,8 +69,12 @@ class GmailClient:
                 creds = flow.run_local_server(port=0)
 
             # Save credentials for next run
-            with open(config.GMAIL_TOKEN_FILE, 'w') as token:
-                token.write(creds.to_json())
+            try:
+                with open(config.GMAIL_TOKEN_FILE, 'w') as token:
+                    token.write(creds.to_json())
+                logger.info(f"Token saved to {config.GMAIL_TOKEN_FILE}")
+            except Exception as e:
+                logger.error(f"Failed to save token: {e}")
 
         self.service = build('gmail', 'v1', credentials=creds)
         logger.info("Successfully authenticated with Gmail API")
