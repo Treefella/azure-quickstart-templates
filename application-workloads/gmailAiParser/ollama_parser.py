@@ -61,7 +61,7 @@ class OllamaParser:
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=60
+                timeout=300
             )
             response.raise_for_status()
 

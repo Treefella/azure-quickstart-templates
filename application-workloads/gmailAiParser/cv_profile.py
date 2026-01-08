@@ -163,6 +163,22 @@ class CVProfile:
 
         normalized_score = (score / max_possible_score * 100) if max_possible_score > 0 else 0
 
+        # Check location match
+        location_match = False
+        job_location = str(job_data.get('location', '')).lower()
+
+        if job_location:
+            # Get preferred locations from profile
+            preferred_locations = []
+            if 'contract_preferences' in self.profile_data:
+                preferred_locations = [loc.lower() for loc in self.profile_data['contract_preferences'].get('locations', [])]
+
+            # Check if job location matches any preferred location
+            for pref_loc in preferred_locations:
+                if pref_loc in job_location:
+                    location_match = True
+                    break
+
         return {
             'score': round(normalized_score, 2),
             'raw_score': score,
@@ -171,6 +187,7 @@ class CVProfile:
             'matched_roles': list(matched_roles),
             'matched_domains': list(matched_domains),
             'matched_keywords': list(matched_keywords),
+            'location_match': location_match,
             'total_matches': len(matched_skills) + len(matched_technologies) +
                            len(matched_roles) + len(matched_domains) + len(matched_keywords)
         }
