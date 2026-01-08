@@ -36,7 +36,7 @@ class OllamaParser:
             logger.error(f"Failed to connect to Ollama at {self.base_url}: {e}")
             logger.error("Make sure Ollama is running. You can start it with: ollama serve")
 
-    def _query_ollama(self, model: str, prompt: str, system_prompt: str = None) -> Optional[str]:
+    def _query_ollama(self, model: str, prompt: str, system_prompt: str = None, max_tokens: int = 100) -> Optional[str]:
         """
         Query Ollama model with a prompt
 
@@ -44,6 +44,7 @@ class OllamaParser:
             model: Model name to use
             prompt: User prompt
             system_prompt: Optional system prompt
+            max_tokens: Maximum tokens to generate (lower = faster)
 
         Returns:
             Model response text
@@ -52,7 +53,11 @@ class OllamaParser:
             payload = {
                 "model": model,
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "options": {
+                    "temperature": 0,  # Deterministic = faster
+                    "num_predict": max_tokens  # Limit output length
+                }
             }
 
             if system_prompt:
@@ -81,27 +86,32 @@ class OllamaParser:
         Returns:
             True if email is job-related
         """
+        # SPEED OPTIMIZATION: Keyword pre-filter before AI call
+        text = f"{email_data['subject']} {email_data.get('snippet', '')}".lower()
+        has_keywords = any(keyword in text for keyword in config.JOB_KEYWORDS)
+
+        if not has_keywords:
+            # No job keywords at all - skip AI call
+            return False
+
         model = self.models['job_detection']
 
-        system_prompt = """You are an expert at identifying job-related emails.
-Analyze the email and determine if it's related to job opportunities, job applications,
-recruitment, hiring, or career opportunities. Respond with only 'YES' or 'NO'."""
+        # Shorter system prompt for speed
+        system_prompt = "Identify job-related emails. Reply only YES or NO."
 
-        prompt = f"""Email Subject: {email_data['subject']}
+        # Use snippet only (not full body) for speed
+        prompt = f"""Subject: {email_data['subject']}
+Snippet: {email_data.get('snippet', '')[:200]}
 
-Email Body (first 500 chars):
-{email_data['body'][:500]}
+Job email? YES/NO:"""
 
-Is this email related to job opportunities or job applications? Answer with only YES or NO."""
-
-        response = self._query_ollama(model, prompt, system_prompt)
+        response = self._query_ollama(model, prompt, system_prompt, max_tokens=5)
 
         if response:
             return 'yes' in response.lower()
 
         # Fallback to keyword matching
-        text = f"{email_data['subject']} {email_data['body']}".lower()
-        return any(keyword in text for keyword in config.JOB_KEYWORDS)
+        return has_keywords
 
     def is_application_confirmation(self, email_data: Dict) -> bool:
         """
@@ -147,29 +157,18 @@ Is this a job application confirmation email? Answer with only YES or NO."""
         """
         model = self.models['job_extraction']
 
-        system_prompt = """You are an expert at extracting job information from emails.
-Extract the following information and return it as valid JSON:
-- company: Company name
-- position: Job title/position
-- location: Job location (or "Remote" if applicable)
-- job_type: Full-time, Part-time, Contract, etc.
-- salary: Salary information if mentioned
-- application_deadline: Deadline if mentioned
-- key_requirements: List of key requirements
-- description: Brief job description
+        # Shorter system prompt for speed
+        system_prompt = "Extract job info as JSON. Use null if missing. Return only JSON."
 
-If information is not available, use null. Return ONLY valid JSON, no other text."""
+        # Reduced context: 600 chars instead of 2000
+        prompt = f"""Subject: {email_data['subject']}
+Sender: {email_data['sender']}
+Body: {email_data['body'][:600]}
 
-        prompt = f"""Email Subject: {email_data['subject']}
+JSON format:
+{{"company": "", "position": "", "location": "", "job_type": "", "salary": null, "description": ""}}"""
 
-Email Sender: {email_data['sender']}
-
-Email Body:
-{email_data['body'][:2000]}
-
-Extract job details as JSON:"""
-
-        response = self._query_ollama(model, prompt, system_prompt)
+        response = self._query_ollama(model, prompt, system_prompt, max_tokens=200)
 
         if response:
             try:

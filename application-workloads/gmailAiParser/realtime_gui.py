@@ -113,30 +113,7 @@ class RealtimeJobDetector(JobDetector):
                 time.sleep(0.1)
                 continue
 
-            # Check if it's a confirmation
-            processing_state['status'] = '🤖 Checking if confirmation...'
-            emit_update()
-
-            is_confirmation = self.ollama_parser.is_application_confirmation(email)
-
-            if is_confirmation:
-                confirmations += 1
-                processing_state['stats'] = {
-                    'new_jobs': new_jobs,
-                    'confirmations': confirmations,
-                    'duplicates': duplicates,
-                    'non_jobs': non_jobs
-                }
-                processing_state['status'] = '✅ Application confirmation'
-                emit_update()
-
-                self.duplicate_tracker.mark_as_processed(
-                    email['id'], email, is_job=True, is_confirmation=True
-                )
-                time.sleep(0.1)
-                continue
-
-            # Check if job-related
+            # Skip confirmation check for speed - check if job-related directly
             processing_state['status'] = '🤖 Checking if job email...'
             emit_update()
 
