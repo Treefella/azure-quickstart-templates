@@ -11,3 +11,6 @@ python-dateutil>=2.8.2
 
 # Web GUI
 flask>=2.0.0
+
+# Live console output
+rich>=13.0.0

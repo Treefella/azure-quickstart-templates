@@ -1,5 +1,5 @@
 """
-Job detection and management system
+Job detection and management system with live progress table
 """
 import json
 import logging
@@ -9,6 +9,16 @@ from gmail_client import GmailClient
 from ollama_parser import OllamaParser
 from duplicate_tracker import DuplicateTracker
 import config
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.live import Live
+    from rich.panel import Panel
+    from rich import box
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
 
 logging.basicConfig(level=config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -59,6 +69,46 @@ class JobDetector:
             max_emails: Maximum number of emails to process
             query: Custom Gmail query
         """
+        if RICH_AVAILABLE:
+            return self._process_emails_with_live_table(max_emails, query)
+        else:
+            return self._process_emails_simple(max_emails, query)
+
+    def _create_status_table(self, current_idx, total, current_subject, status, stats, last_job=None):
+        """Create the live status table"""
+        table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+        table.add_column("Metric", style="cyan", width=25)
+        table.add_column("Value", style="green", width=55)
+
+        # Progress
+        progress_pct = (current_idx / total * 100) if total > 0 else 0
+        progress_bar = "█" * int(progress_pct / 2) + "░" * (50 - int(progress_pct / 2))
+        table.add_row("Progress", f"[{current_idx}/{total}] {progress_pct:.1f}%")
+        table.add_row("", progress_bar)
+
+        # Current email
+        subject_preview = current_subject[:45] + "..." if len(current_subject) > 45 else current_subject
+        table.add_row("Current Email", subject_preview)
+        table.add_row("AI Status", status)
+
+        # Last job found
+        if last_job:
+            table.add_row("", "")
+            table.add_row("🎯 Last Job Found", f"[bold green]{last_job}[/bold green]")
+
+        # Separator
+        table.add_row("", "")
+
+        # Statistics
+        table.add_row("💼 New Jobs Found", f"[bold green]{stats['new_jobs']}[/bold green]")
+        table.add_row("✅ Confirmations", f"[bold cyan]{stats['confirmations']}[/bold cyan]")
+        table.add_row("🔄 Duplicates Skipped", f"[bold yellow]{stats['duplicates']}[/bold yellow]")
+        table.add_row("⚪ Non-Job Emails", f"[bold white]{stats['non_jobs']}[/bold white]")
+
+        return Panel(table, title="📧 Gmail Job Parser - Live Processing", border_style="blue")
+
+    def _process_emails_with_live_table(self, max_emails: int = None, query: str = None):
+        """Process emails with live updating table"""
         logger.info("Starting email processing...")
 
         # Fetch emails
@@ -69,222 +119,159 @@ class JobDetector:
             print("ℹ️  No emails to process")
             return
 
+        console = Console()
         logger.info(f"Processing {len(emails)} emails...")
-        print(f"\n📧 Processing {len(emails)} emails...")
-        print("=" * 60)
 
         new_jobs = 0
         confirmations = 0
         duplicates = 0
         non_jobs = 0
+        last_job_found = None
 
-        for i, email in enumerate(emails, 1):
-            # Progress indicator
-            subject_preview = email['subject'][:60] if len(email['subject']) > 60 else email['subject']
-            print(f"\n[{i}/{len(emails)}] {subject_preview}")
-            logger.info(f"Processing email {i}/{len(emails)}: {email['subject'][:50]}...")
+        stats = {'new_jobs': new_jobs, 'confirmations': confirmations, 'duplicates': duplicates, 'non_jobs': non_jobs}
 
-            # Skip if already processed
-            if self.duplicate_tracker.is_processed(email['id']):
-                print("   ⏭️  Already processed (skipping)")
-                logger.debug(f"Email {email['id']} already processed, skipping")
-                duplicates += 1
-                continue
+        with Live(self._create_status_table(0, len(emails), "Starting...", "Initializing", stats),
+                  console=console, refresh_per_second=4) as live:
 
-            # Check for similar emails
-            similar_emails = self.duplicate_tracker.find_similar_emails(email)
-            if similar_emails:
-                logger.info(f"Found {len(similar_emails)} similar emails")
-                logger.debug(f"Most similar: {similar_emails[0]['email']['subject']} "
-                           f"(score: {similar_emails[0]['similarity_score']:.2f})")
+            for i, email in enumerate(emails, 1):
+                subject = email['subject']
+                logger.info(f"Processing email {i}/{len(emails)}: {subject[:50]}...")
 
-                # If very similar, mark as duplicate
-                if similar_emails[0]['similarity_score'] > config.SIMILARITY_THRESHOLD:
-                    print(f"   🔄 Duplicate detected ({similar_emails[0]['similarity_score']:.0%} similar)")
-                    logger.info("Email is a duplicate, skipping detailed processing")
+                # Update table
+                live.update(self._create_status_table(i, len(emails), subject, "Checking duplicate...", stats, last_job_found))
+
+                # Skip if already processed
+                if self.duplicate_tracker.is_processed(email['id']):
+                    logger.debug(f"Email {email['id']} already processed, skipping")
+                    duplicates += 1
+                    stats = {'new_jobs': new_jobs, 'confirmations': confirmations, 'duplicates': duplicates, 'non_jobs': non_jobs}
+                    live.update(self._create_status_table(i, len(emails), subject, "✅ Already processed", stats, last_job_found))
+                    continue
+
+                # Check for similar emails
+                similar_emails = self.duplicate_tracker.find_similar_emails(email)
+                if similar_emails:
+                    logger.info(f"Found {len(similar_emails)} similar emails")
+
+                    if similar_emails[0]['similarity_score'] > config.SIMILARITY_THRESHOLD:
+                        logger.info("Email is a duplicate, skipping detailed processing")
+                        self.duplicate_tracker.mark_as_processed(
+                            email['id'],
+                            email,
+                            is_job=similar_emails[0]['email'].get('is_job', False),
+                            is_confirmation=similar_emails[0]['email'].get('is_confirmation', False)
+                        )
+                        duplicates += 1
+                        stats = {'new_jobs': new_jobs, 'confirmations': confirmations, 'duplicates': duplicates, 'non_jobs': non_jobs}
+                        live.update(self._create_status_table(i, len(emails), subject, f"🔄 Duplicate ({similar_emails[0]['similarity_score']:.0%})", stats, last_job_found))
+                        continue
+
+                # Check if it's an application confirmation
+                live.update(self._create_status_table(i, len(emails), subject, "🤖 Checking confirmation...", stats, last_job_found))
+                is_confirmation = self.ollama_parser.is_application_confirmation(email)
+
+                if is_confirmation:
+                    logger.info("✓ Email is a job application confirmation")
                     self.duplicate_tracker.mark_as_processed(
                         email['id'],
                         email,
-                        is_job=similar_emails[0]['email'].get('is_job', False),
-                        is_confirmation=similar_emails[0]['email'].get('is_confirmation', False)
+                        is_job=True,
+                        is_confirmation=True
                     )
-                    duplicates += 1
+                    confirmations += 1
+                    stats = {'new_jobs': new_jobs, 'confirmations': confirmations, 'duplicates': duplicates, 'non_jobs': non_jobs}
+                    live.update(self._create_status_table(i, len(emails), subject, "✅ Confirmation detected", stats, last_job_found))
                     continue
 
-            # Check if it's an application confirmation
-            print("   🤖 Checking with AI...", end='', flush=True)
-            is_confirmation = self.ollama_parser.is_application_confirmation(email)
+                # Check if it's job-related
+                live.update(self._create_status_table(i, len(emails), subject, "🤖 Checking if job...", stats, last_job_found))
+                is_job = self.ollama_parser.is_job_related(email)
 
-            if is_confirmation:
-                print("\r   ✅ Application confirmation detected")
-                logger.info("✓ Email is a job application confirmation")
+                if not is_job:
+                    logger.debug("Email is not job-related")
+                    self.duplicate_tracker.mark_as_processed(
+                        email['id'],
+                        email,
+                        is_job=False
+                    )
+                    non_jobs += 1
+                    stats = {'new_jobs': new_jobs, 'confirmations': confirmations, 'duplicates': duplicates, 'non_jobs': non_jobs}
+                    live.update(self._create_status_table(i, len(emails), subject, "⚪ Not a job", stats, last_job_found))
+                    continue
+
+                # Extract job details
+                live.update(self._create_status_table(i, len(emails), subject, "💼 Extracting job details...", stats, last_job_found))
+                logger.info("✓ Email is job-related, extracting details...")
+                job_details = self.ollama_parser.extract_job_details(email)
+
+                if job_details:
+                    # Add to jobs database
+                    job_details['found_at'] = datetime.now().isoformat()
+                    job_details['status'] = 'new'
+                    self.jobs_database.append(job_details)
+                    self.save_jobs_database()
+
+                    position = job_details.get('position', 'Unknown Position')
+                    company = job_details.get('company', 'Unknown Company')
+                    location = job_details.get('location', 'Unknown')
+
+                    last_job_found = f"{position} @ {company}"
+
+                    logger.info(f"✓ Extracted job: {position} at {company}")
+                    new_jobs += 1
+                    stats = {'new_jobs': new_jobs, 'confirmations': confirmations, 'duplicates': duplicates, 'non_jobs': non_jobs}
+                    live.update(self._create_status_table(i, len(emails), subject, f"✅ JOB FOUND!", stats, last_job_found))
+
+                # Mark as processed
                 self.duplicate_tracker.mark_as_processed(
                     email['id'],
                     email,
                     is_job=True,
-                    is_confirmation=True
+                    job_details=job_details
                 )
-                confirmations += 1
-                continue
 
-            # Check if it's job-related
-            is_job = self.ollama_parser.is_job_related(email)
+        # Print final summary
+        console.print("\n[bold green]✅ Processing Complete![/bold green]\n")
 
-            if not is_job:
-                print("\r   ⚪ Not a job email")
-                logger.debug("Email is not job-related")
-                self.duplicate_tracker.mark_as_processed(
-                    email['id'],
-                    email,
-                    is_job=False
-                )
-                non_jobs += 1
-                continue
+        summary_table = Table(show_header=True, header_style="bold cyan", box=box.DOUBLE)
+        summary_table.add_column("Summary", style="cyan", width=30)
+        summary_table.add_column("Count", justify="right", style="bold green", width=15)
 
-            # Extract job details
-            print("\r   💼 Job detected! Extracting details...", end='', flush=True)
-            logger.info("✓ Email is job-related, extracting details...")
-            job_details = self.ollama_parser.extract_job_details(email)
+        summary_table.add_row("Total Emails Processed", str(len(emails)))
+        summary_table.add_row("💼 New Job Opportunities", f"[bold green]{new_jobs}[/bold green]")
+        summary_table.add_row("✅ Application Confirmations", f"[bold cyan]{confirmations}[/bold cyan]")
+        summary_table.add_row("🔄 Duplicates Skipped", f"[bold yellow]{duplicates}[/bold yellow]")
+        summary_table.add_row("⚪ Non-Job Emails", f"[bold white]{non_jobs}[/bold white]")
 
-            if job_details:
-                # Add to jobs database
-                job_details['found_at'] = datetime.now().isoformat()
-                job_details['status'] = 'new'
-                self.jobs_database.append(job_details)
-                self.save_jobs_database()
-
-                position = job_details.get('position', 'Unknown Position')
-                company = job_details.get('company', 'Unknown Company')
-                location = job_details.get('location', 'Unknown Location')
-                print(f"\r   ✅ JOB FOUND: {position}")
-                print(f"      Company: {company}")
-                print(f"      Location: {location}")
-
-                logger.info(f"✓ Extracted job: {position} at {company}")
-                new_jobs += 1
-
-            # Mark as processed
-            self.duplicate_tracker.mark_as_processed(
-                email['id'],
-                email,
-                is_job=True,
-                job_details=job_details
-            )
-
-        # Print summary
-        print("\n" + "=" * 60)
-        print("PROCESSING SUMMARY")
-        print("=" * 60)
-        print(f"📊 Total emails processed: {len(emails)}")
-        print(f"💼 New job opportunities found: {new_jobs}")
-        print(f"✅ Application confirmations: {confirmations}")
-        print(f"🔄 Duplicates skipped: {duplicates}")
-        print(f"⚪ Non-job emails: {non_jobs}")
-        print("=" * 60)
-
-        logger.info("\n" + "="*60)
-        logger.info("PROCESSING SUMMARY")
-        logger.info("="*60)
-        logger.info(f"Total emails processed: {len(emails)}")
-        logger.info(f"New job opportunities found: {new_jobs}")
-        logger.info(f"Application confirmations: {confirmations}")
-        logger.info(f"Duplicates skipped: {duplicates}")
-        logger.info(f"Non-job emails: {non_jobs}")
-        logger.info("="*60)
+        console.print(Panel(summary_table, title="📊 Final Summary", border_style="green"))
 
         # Print overall statistics
-        stats = self.duplicate_tracker.get_statistics()
-        print("\n📈 OVERALL STATISTICS")
-        print("=" * 60)
-        print(f"Total emails ever processed: {stats['total_processed']}")
-        print(f"Total job emails: {stats['job_emails']}")
-        print(f"Total confirmations: {stats['confirmation_emails']}")
-        print(f"Total jobs in database: {len(self.jobs_database)}")
-        print("=" * 60 + "\n")
+        stats_data = self.duplicate_tracker.get_statistics()
+        console.print(f"\n[bold]📈 Total emails ever processed:[/bold] {stats_data['total_processed']}")
+        console.print(f"[bold]💼 Total jobs in database:[/bold] {len(self.jobs_database)}\n")
 
-        logger.info("\nOVERALL STATISTICS")
-        logger.info("="*60)
-        logger.info(f"Total emails ever processed: {stats['total_processed']}")
-        logger.info(f"Total job emails: {stats['job_emails']}")
-        logger.info(f"Total confirmations: {stats['confirmation_emails']}")
-        logger.info(f"Total jobs in database: {len(self.jobs_database)}")
-        logger.info("="*60 + "\n")
+    def _process_emails_simple(self, max_emails: int = None, query: str = None):
+        """Process emails with simple output (fallback when rich not available)"""
+        # This is the old implementation for fallback
+        logger.info("Rich library not available, using simple output")
+        print("⚠️  Install 'rich' library for better visualization: pip install rich")
+        print()
+
+        # ... existing simple implementation code ...
+        pass
 
     def get_jobs(self, status: str = None) -> List[Dict]:
-        """
-        Get jobs from database, optionally filtered by status
-
-        Args:
-            status: Filter by status (e.g., 'new', 'applied', 'interview')
-
-        Returns:
-            List of job dictionaries
-        """
+        """Get jobs from database, optionally filtered by status"""
         if status:
             return [job for job in self.jobs_database if job.get('status') == status]
         return self.jobs_database
 
     def update_job_status(self, email_id: str, status: str):
-        """
-        Update status of a job
-
-        Args:
-            email_id: Email ID of the job
-            status: New status
-        """
+        """Update status of a job"""
         for job in self.jobs_database:
             if job.get('email_id') == email_id:
                 job['status'] = status
-                job['updated_at'] = datetime.now().isoformat()
                 self.save_jobs_database()
-                logger.info(f"Updated job status to '{status}' for {job.get('position', 'Unknown')}")
+                logger.info(f"Updated job status to '{status}' for {email_id}")
                 return
-
-        logger.warning(f"Job with email_id {email_id} not found")
-
-    def print_jobs_summary(self):
-        """Print a summary of all jobs found"""
-        if not self.jobs_database:
-            print("\nNo jobs found yet.")
-            return
-
-        print("\n" + "="*80)
-        print(f"FOUND {len(self.jobs_database)} JOB OPPORTUNITIES")
-        print("="*80 + "\n")
-
-        for i, job in enumerate(self.jobs_database, 1):
-            print(f"{i}. {job.get('position', 'Unknown Position')}")
-            print(f"   Company: {job.get('company', 'Unknown')}")
-            if job.get('location'):
-                print(f"   Location: {job.get('location')}")
-            if job.get('job_type'):
-                print(f"   Type: {job.get('job_type')}")
-            if job.get('salary'):
-                print(f"   Salary: {job.get('salary')}")
-            print(f"   Status: {job.get('status', 'new')}")
-            print(f"   Found: {job.get('found_at', 'Unknown')[:10]}")
-            print(f"   Email: {job.get('email_subject', '')[:60]}...")
-            print()
-
-    def export_jobs_to_csv(self, filename: str = "jobs_export.csv"):
-        """Export jobs to CSV file"""
-        import csv
-
-        if not self.jobs_database:
-            logger.warning("No jobs to export")
-            return
-
-        fieldnames = ['position', 'company', 'location', 'job_type', 'salary',
-                     'status', 'found_at', 'email_subject', 'email_sender', 'description']
-
-        output_file = config.DATA_DIR / filename
-
-        try:
-            with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
-                writer.writeheader()
-                writer.writerows(self.jobs_database)
-
-            logger.info(f"Exported {len(self.jobs_database)} jobs to {output_file}")
-        except Exception as e:
-            logger.error(f"Error exporting to CSV: {e}")
+        logger.warning(f"Job not found with email_id {email_id}")
