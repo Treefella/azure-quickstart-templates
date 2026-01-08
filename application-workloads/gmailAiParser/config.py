@@ -21,6 +21,13 @@ GMAIL_CREDENTIALS_FILE = BASE_DIR / "credentials.json"
 GMAIL_MAX_RESULTS = 100  # Number of emails to fetch per batch
 GMAIL_QUERY = "subject:(job OR hiring OR position OR opportunity OR application OR career)"
 
+# Database settings
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://gmail_parser:parser_secure_2024@localhost:5432/gmail_jobs"
+)
+USE_DATABASE = os.getenv("USE_DATABASE", "true").lower() == "true"
+
 # Ollama settings
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
