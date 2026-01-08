@@ -37,7 +37,7 @@ processing_state = {
 
 def emit_update():
     """Send update to all connected clients"""
-    socketio.emit('update', processing_state, broadcast=True)
+    socketio.emit('update', processing_state)
 
 class RealtimeJobDetector(JobDetector):
     """Job detector with real-time GUI updates"""
