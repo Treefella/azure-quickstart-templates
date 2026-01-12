@@ -1,0 +1,75 @@
+search:
+  role_keywords:
+    - "EUC Engineer"
+    - "Senior EUC Engineer"
+    - "End User Computing"
+    - "Endpoint Engineer"
+    - "Modern Workplace Engineer"
+    - "Windows Engineer"
+    - "Deployment Engineer"
+    - "Third Line Engineer"
+    - "SCCM Engineer"
+    - "Intune Engineer"
+
+  tech_keywords:
+    - "Intune"
+    - "Autopilot"
+    - "SCCM"
+    - "Windows 11"
+    - "Windows 10"
+    - "Microsoft 365"
+    - "Entra"
+    - "Azure AD"
+    - "Endpoint Manager"
+    - "Configuration Manager"
+
+  exclude_keywords:
+    - "1st Line"
+    - "First Line"
+    - "Service Desk"
+    - "Call Centre"
+    - "Helpdesk"
+    - "Junior"
+    - "Apprentice"
+
+  locations:
+    - "United Kingdom"
+    - "Newcastle"
+    - "Durham"
+    - "North East"
+    - "Remote"
+    - "UK Remote"
+
+  contract_preferences:
+    type: "contract"
+    ir35_preference: "outside"
+    min_day_rate: 400
+    max_day_rate: 600
+
+  max_job_age_days: 7
+
+scraping:
+  min_delay_seconds: 3600        # 1 hour
+  max_delay_seconds: 5400        # 1.5 hours
+  user_agent_rotation: true
+  max_results_per_query: 20
+
+output:
+  format: "database"              # database or csv
+  csv_file: "euc_jobs.csv"
+  realtime_display: true
+  save_to_postgres: true
+
+# Job board sources (ethical scraping only)
+sources:
+  - name: "indeed"
+    enabled: true
+    url_template: "https://uk.indeed.com/jobs?q={query}&l={location}"
+
+  - name: "reed"
+    enabled: true
+    url_template: "https://www.reed.co.uk/jobs/{query}-jobs-in-{location}"
+
+  - name: "cwjobs"
+    enabled: true
+    url_template: "https://www.cwjobs.co.uk/jobs/{query}/in-{location}"

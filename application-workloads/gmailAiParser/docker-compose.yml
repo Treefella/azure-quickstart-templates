@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for persistent storage
+  postgres:
+    image: postgres:16-alpine
+    container_name: gmail-job-parser-postgres
+    environment:
+      POSTGRES_DB: gmail_jobs
+      POSTGRES_USER: gmail_parser
+      POSTGRES_PASSWORD: parser_secure_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gmail_parser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - job-parser-network
+
+  # Ollama service for running LLM models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: gmail-job-parser-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - job-parser-network
+
+  # Model initialization service - pulls required models on startup
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: gmail-job-parser-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./init-models.sh:/init-models.sh
+    entrypoint: ["/bin/sh", "/init-models.sh"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    networks:
+      - job-parser-network
+
+  # Gmail Job Parser application
+  job-parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gmail-job-parser-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+      - ./credentials.json:/app/credentials.json:ro
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_JOB_DETECTION_MODEL=llama3.2
+      - OLLAMA_JOB_EXTRACTION_MODEL=llama3.2
+      - OLLAMA_CONFIRMATION_MODEL=llama3.2
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://gmail_parser:parser_secure_2024@postgres:5432/gmail_jobs
+    networks:
+      - job-parser-network
+    stdin_open: true
+    tty: true
+    command: ["python", "main.py", "--max-emails", "50"]
+
+volumes:
+  ollama_models:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  job-parser-network:
+    driver: bridge
